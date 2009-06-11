@@ -67,8 +67,8 @@ module CASClient
                   controller.session[:casfilteruser] = vr.user
                   
                   if config[:enable_single_sign_out]
-                    f = store_service_session_lookup(st, controller.session.session_id)
-                    log.debug("Wrote service session lookup file to #{f.inspect} with session id #{controller.session.session_id.inspect}.")
+                    f = store_service_session_lookup(st, controller.request.session_options[:id])
+                    log.debug("Wrote service session lookup file to #{f.inspect} with session id #{controller.request.session_options[:id]}.")
                   end
                 end
               
