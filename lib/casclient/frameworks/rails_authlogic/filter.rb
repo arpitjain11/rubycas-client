@@ -54,9 +54,7 @@ module CASClient
             end
 
             if st
-              log.debug 'Before Validating ServiceTicket'
               client.validate_service_ticket(st) unless st.has_been_validated?
-              log.debug 'After Validating ServiceTicket'
               vr = st.response
 
               if st.is_valid?
@@ -70,12 +68,12 @@ module CASClient
                     UserSession.create(temp_user)
                     log.info "Authlogic Session created for user : #{vr.user.inspect}"
                   else
-                    return false #If user not found by same login and id, then return false
+                    return false
                   end
 
-                  if vr.extra_attributes
-                    log.debug("Extra user attributes provided along with ticket #{st.ticket.inspect}: #{vr.extra_attributes.inspect}.")
-                  end
+#                   if vr.extra_attributes
+#                     log.debug("Extra user attributes provided along with ticket #{st.ticket.inspect}: #{vr.extra_attributes.inspect}.")
+#                   end
                   #logger.info "Session Now is #{controller.session.inspect}"
 
                   # RubyCAS-Client 1.x used :casfilteruser as it's username session key,
@@ -105,11 +103,19 @@ module CASClient
                       controller.session[:casfilterpgt] = pgt
                     else
                       log.error("Failed to retrieve a PGT for PGT IOU #{vr.pgt_iou}!")
-                    end
+                    end # if pgt else
+
                   else
                     log.info("PGT is present in session and PGT IOU #{vr.pgt_iou} matches the saved PGT IOU.  Not retrieving new PGT.")
                   end
+                end # if vr.pgt_iou
 
+                # Redirect to remove ticket from URL if configured to do so.
+                if controller.params[:ticket] && config[:remove_ticket_from_url]
+                  log.info("Removing ticket from params")
+                  ticketless_params = controller.params.dup
+                  ticketless_params.delete(:ticket)
+                  controller.send(:redirect_to, controller.url_for(ticketless_params))
                 end
 
                 return true
@@ -156,6 +162,12 @@ module CASClient
             return url
           end
 
+          def explicit_login_url(service_url)
+            url = client.add_service_to_login_url(service_url)
+            log.debug("Generated login url: #{url}")
+            url
+          end
+
           # Clears the given controller's local Rails session, does some local
           # CAS cleanup, and redirects to the CAS logout page. Additionally, the
           # <tt>request.referer</tt> value from the <tt>controller</tt> instance
@@ -173,7 +185,6 @@ module CASClient
             delete_service_session_lookup(st) if st
             controller.send(:reset_session) # FIXME required ? if line below is called ?
             #current_user_session.destroy #Authlogic session destroy
-            log.info "Referer after logout is #{referer}"
             controller.send(:redirect_to, client.logout_url(referer))
           end
 
